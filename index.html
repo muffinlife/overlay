@@ -1091,6 +1091,11 @@ body.mode-output .preview-frame { position: static; border: 0; border-radius: 0;
   .now { flex-basis: 100%; order: 5; }
 }
 
+/* one-link widget switch */
+.pv-row #btnAir { margin-left: auto; }
+#btnAir.air-on { opacity: 1; color: #6fe08a; border-color: rgba(111,224,138,0.5); cursor: default; }
+.tab.wid::after { content: "WIDGET"; font-family: 'Source Sans 3', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; margin-left: 8px; padding: 2px 5px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.75; vertical-align: middle; }
+
 </style>
 </head>
 <body>
@@ -1161,7 +1166,7 @@ body.mode-output .preview-frame { position: static; border: 0; border-radius: 0;
         </div>
       </div>
     </div>
-    <div class="ctl pv-row"><div class="preview-badge" id="previewBadge">LIVE</div><div class="preview-air" id="previewAir"></div></div>
+    <div class="ctl pv-row"><div class="preview-badge" id="previewBadge">LIVE</div><div class="preview-air" id="previewAir"></div><button class="btn sm" id="btnAir" hidden></button></div>
 
     <!-- QUICK ACTIONS -->
     <div class="ctl quick" id="quick">
@@ -1333,7 +1338,8 @@ body.mode-output .preview-frame { position: static; border: 0; border-radius: 0;
         <h4>ON AIR</h4>
         <p class="hint" id="airLine"></p>
         <div class="stack">
-          <button class="btn ghost" id="btnCopyOut">COPY THE LINK FOR ECAMM / OBS</button>
+          <button class="btn ghost" id="btnCopyAir">COPY THE ONE LINK FOR ALL THESE SHOWS</button>
+          <button class="btn ghost" id="btnCopyOut">COPY THE LINK FOR THIS SHOW ONLY</button>
           <button class="btn ghost" id="btnReload">REFRESH THE OVERLAY IN ECAMM</button>
         </div>
         <h4>MORE</h4>
@@ -1377,6 +1383,7 @@ var CFG = Object.assign({
 CFG.databaseURL = String(CFG.databaseURL || '').replace(/\/+$/, '');
 var QS = new URLSearchParams(location.search);
 var OUT_ID = QS.get('out');
+var AIR_ID = QS.get('air');   /* one widget link per person: it shows whichever of their shows is switched on */
 /* demo = this browser only, open = local server without sign-in, cloud = Firebase with sign-in */
 var MODE = !CFG.databaseURL ? 'demo' : (CFG.apiKey ? 'cloud' : 'open');
 
@@ -1550,6 +1557,8 @@ var BUILTIN = {
     };
   }
 };
+/* Which show a person's one-link widget shows before anyone has switched it. */
+function airDefault(owner) { for (var i = 0; i < SHOWS.length; i++) if (SHOWS[i].owner === owner) return SHOWS[i].id; return owner; }
 /* The built-in starting point for a show (also what "load default" falls back to). */
 function builtin(showId) {
   var b = BUILTIN[showId] ? BUILTIN[showId]() : {};
@@ -2158,31 +2167,51 @@ var Stage = (function () {
 /* =========================================================
    ON-AIR OUTPUT (the link that goes into Ecamm / OBS). View only.
    ========================================================= */
-function initOutput(showId) {
+function initOutput(showId, channel) {
   document.body.classList.add('mode-output');
-  document.title = 'Overlay output: ' + showId;
   Stage.init({ interactive: false });
-  var cacheKey = 'overlaydesk.cache.' + showId, bootTok, first = true;
-  /* Paint immediately from the last known state, so a slow connection never shows an empty screen. */
-  Stage.render(normalize(decodeRaw(lsGet(cacheKey, null)), showId));
+  var bootTok, first = true, un = null, curId = null;
   DB.onStatus(function (ok) { Stage.setOnline(ok); });
-  DB.listen('/shows/' + showId, function (raw) {
-    if (raw) lsSet(cacheKey, raw);
-    var s = normalize(decodeRaw(raw), showId), tok = s.sys.reload || 0;
-    if (bootTok === undefined) bootTok = tok;
-    else if (tok && tok !== bootTok) { location.reload(); return; }
-    Stage.render(s);
-    Stage.flash(s.flash, !first);
-    first = false;
-  });
-  /* Heartbeat so the control desk can show that this output is on air. */
   var cid = lsGet('overlaydesk.cid', null);
   if (!cid) { cid = 'o' + rid(); lsSet('overlaydesk.cid', cid); }
   var beat = 0;
+  /* Heartbeat so the control desk can show that this output is on air. */
   function heartbeat() {
+    if (!curId) return;
     beat++;
-    DB.put('/presence/' + showId + '/' + cid, beat + '|' + Date.now() + '|' + window.innerWidth + 'x' + window.innerHeight, false).catch(function () {});
+    DB.put('/presence/' + curId + '/' + cid, beat + '|' + Date.now() + '|' + window.innerWidth + 'x' + window.innerHeight, false).catch(function () {});
   }
+  function attach(id) {
+    if (!id || id === curId) return;
+    if (un) un();
+    if (curId) DB.del('/presence/' + curId + '/' + cid, false).catch(function () {});
+    curId = id; bootTok = undefined; first = true;
+    document.title = 'Overlay output: ' + id;
+    Stage.hideFlash();
+    var cacheKey = 'overlaydesk.cache.' + id;
+    /* Paint immediately from the last known state, so a slow connection never shows an empty screen. */
+    Stage.render(normalize(decodeRaw(lsGet(cacheKey, null)), id));
+    un = DB.listen('/shows/' + id, function (raw) {
+      if (id !== curId) return;
+      if (raw) lsSet(cacheKey, raw);
+      var s = normalize(decodeRaw(raw), id), tok = s.sys.reload || 0;
+      if (bootTok === undefined) bootTok = tok;
+      else if (tok && tok !== bootTok) { location.reload(); return; }
+      Stage.render(s);
+      Stage.flash(s.flash, !first);
+      first = false;
+    });
+    heartbeat();
+  }
+  if (channel) {
+    /* One link, many shows: follow whichever show the desk has switched this person's widget to. */
+    var pk = 'overlaydesk.air.' + channel;
+    attach(lsGet(pk, null) || airDefault(channel));
+    DB.listen('/library/_air', function (raw) {
+      var id = isObj(raw) && typeof raw[channel] === 'string' && raw[channel] ? raw[channel] : airDefault(channel);
+      lsSet(pk, id); attach(id);
+    });
+  } else attach(showId);
   heartbeat(); setInterval(heartbeat, 15000);
 }
 
@@ -2220,6 +2249,7 @@ function initControl() {
   }
   function allShows() { return SHOWS.concat(C.extra); }
   function meta(id) { var a = allShows(); for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i]; return { id: id, name: up(id), owner: 'other', ownerName: 'OTHER', blurb: '' }; }
+  function airLink(owner) { return location.origin + location.pathname + '?air=' + encodeURIComponent(owner); }
   function outLink(id) { return location.origin + location.pathname + '?out=' + encodeURIComponent(id); }
   function copy(text, okMsg) {
     var done = function () { toast(okMsg || 'Copied'); };
@@ -2726,7 +2756,7 @@ function initControl() {
     var m = meta(id);
     $('showTitle').textContent = m.ownerName + ' · ' + m.name;
     $('showBlurb').textContent = m.blurb || '';
-    buildTabs(); updateAir();
+    buildTabs(); updateAir(); updateSwitch();
     C.unLib = DB.listen(libPath(), onLib, { push: false, every: 30000 });
     C.unShow = DB.listen('/shows/' + id, onLive);
     try { history.replaceState(null, '', location.pathname + '?show=' + encodeURIComponent(id)); } catch (e) {}
@@ -2764,7 +2794,7 @@ function initControl() {
           else if (C.canEdit && now - (+parts[1] || 0) > 86400000) DB.del('/presence/' + show + '/' + cid, false).catch(function () {});
         });
       });
-      air = next; buildTabs(); updateAir();
+      air = next; buildTabs(); updateAir(); updateSwitch();
     } catch (e) {}
   }
   function updateAir() {
@@ -2774,7 +2804,29 @@ function initControl() {
   }
   setInterval(pollPresence, 8000); pollPresence();
 
+  /* ---------- one widget link per person: which of their shows is it showing? ---------- */
+  var airPtr = {};
+  function airShow(owner) { return typeof airPtr[owner] === 'string' && airPtr[owner] ? airPtr[owner] : airDefault(owner); }
+  function updateSwitch() {
+    if (!C.id) return;
+    var m = meta(C.id), on = airShow(m.owner) === C.id, b = $('btnAir');
+    b.hidden = false; b.disabled = on || !C.canEdit;
+    b.className = 'btn sm ' + (on ? 'ghost air-on' : 'primary');
+    b.textContent = on ? "ON " + m.ownerName + "'S WIDGET" : "PUT THIS SHOW ON " + m.ownerName + "'S WIDGET";
+    b.title = on ? 'The one-link widget is showing this show' : 'The one-link widget is showing ' + meta(airShow(m.owner)).name + '. Click to switch it to this show.';
+    Array.prototype.forEach.call($('showTabs').querySelectorAll('.tab'), function (t) { t.classList.toggle('wid', airShow(meta(t.dataset.id).owner) === t.dataset.id); });
+  }
+  $('btnAir').onclick = async function () {
+    if (!C.canEdit) { toast('Sign in to do that', true); return; }
+    var m = meta(C.id), was = airPtr[m.owner];
+    airPtr[m.owner] = C.id; updateSwitch();
+    try { await DB.put('/library/_air/' + m.owner, C.id); toast(m.ownerName + "'s widget now shows " + m.name); }
+    catch (e) { airPtr[m.owner] = was; updateSwitch(); toast('The switch did not go through: ' + why(e), true); }
+  };
+  DB.listen('/library/_air', function (raw) { airPtr = isObj(raw) ? raw : {}; updateSwitch(); });
+
   /* ---------- SHOW tab ---------- */
+  $('btnCopyAir').onclick = function () { copy(airLink(meta(C.id).owner), 'Link copied. This one widget covers all of ' + meta(C.id).ownerName + "'s shows."); };
   $('btnCopyOut').onclick = function () { copy(outLink(C.id), 'Link copied. Paste it into Ecamm as a widget overlay.'); };
   $('btnReload').onclick = async function () { if (await quick({ sys: JSON.stringify({ reload: Date.now() }) }, 'The refresh')) toast('Told the overlay to refresh itself'); };
   $('btnSaveDefault').onclick = async function () {
@@ -2817,7 +2869,7 @@ function initControl() {
   DB.listen('/library/_shows', function (raw) {
     var list = []; try { list = JSON.parse(raw && raw.list) || []; } catch (e) {}
     C.extra = Array.isArray(list) ? list.filter(function (x) { return x && x.id && !SHOWS.some(function (s) { return s.id === x.id; }); }) : [];
-    buildTabs(); if (C.id) { var m = meta(C.id); $('showTitle').textContent = m.ownerName + ' · ' + m.name; }
+    buildTabs(); updateSwitch(); if (C.id) { var m = meta(C.id); $('showTitle').textContent = m.ownerName + ' · ' + m.name; }
   }, { push: false, every: 45000 });
 
   /* ---------- links ---------- */
@@ -2826,10 +2878,12 @@ function initControl() {
     var mm = modal('<h3>LINKS FOR ' + esc(m.ownerName + ' · ' + m.name) + '</h3>' +
       '<p><b>For Ecamm or OBS</b> (view only, this is the picture that goes to air):</p><div class="linkbox"><input class="inp" readonly id="l1"><button class="btn sm" id="c1">COPY</button></div>' +
       '<p>In Ecamm: Overlays, New Widget Overlay, paste the link, tick Fill Entire Frame. In OBS: add a Browser source at 1920 x 1080.</p>' +
+      '<p><b>One link for all of ' + esc(m.ownerName) + "'s shows</b> (put this in Ecamm once, then switch shows from this page):</p><div class=\"linkbox\"><input class=\"inp\" readonly id=\"l3\"><button class=\"btn sm\" id=\"c3\">COPY</button></div>" +
       '<p><b>For editing</b> (this page, on any computer, tablet or phone):</p><div class="linkbox"><input class="inp" readonly id="l2"><button class="btn sm" id="c2">COPY</button></div>' +
       '<div class="foot"><button class="btn primary" id="mNo">DONE</button></div>');
     mm.querySelector('#l1').value = outLink(C.id); mm.querySelector('#l2').value = here;
     mm.querySelector('#c1').onclick = function () { copy(outLink(C.id), 'Ecamm link copied'); };
+    mm.querySelector('#l3').value = airLink(m.owner); mm.querySelector('#c3').onclick = function () { copy(airLink(m.owner), 'One-link widget copied'); };
     mm.querySelector('#c2').onclick = function () { copy(here, 'Editing link copied'); };
     mm.querySelector('#mNo').onclick = closeModal;
   };
@@ -2966,7 +3020,7 @@ function initControl() {
 }
 
 /* ---------- boot ---------- */
-if (OUT_ID) initOutput(OUT_ID); else initControl();
+if (AIR_ID) initOutput(null, AIR_ID); else if (OUT_ID) initOutput(OUT_ID); else initControl();
 
 })();
 </script>
