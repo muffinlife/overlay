@@ -703,8 +703,8 @@ body.mode-output .ctl { display: none !important; }
   text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 .logo-mark svg { width: 54px; height: 54px; fill: #fff; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
-.stage[data-logo="bell"] .logo-img, .stage[data-logo="mono"] .logo-img, .stage[data-logo="none"] .logo-img { display: none; }
-.stage[data-logo="bell"] .logo-mark, .stage[data-logo="mono"] .logo-mark { display: flex; }
+.stage[data-logo="bell"] .logo-img, .stage[data-logo="chart"] .logo-img, .stage[data-logo="mono"] .logo-img, .stage[data-logo="none"] .logo-img { display: none; }
+.stage[data-logo="bell"] .logo-mark, .stage[data-logo="chart"] .logo-mark, .stage[data-logo="mono"] .logo-mark { display: flex; }
 .stage[data-logo="none"] .logo-block { padding-left: 22px; }
 .logo-name .gold { margin-left: 0; }
 .stage.no-brand-dot .sync-dot { display: none; }
@@ -793,10 +793,19 @@ body.mode-output .ctl { display: none !important; }
 }
 .stage[data-theme="bell"] .topic.current {
   background:
-    radial-gradient(ellipse at center, rgba(255,255,255,0.97) 0%, rgba(140,210,255,0.55) 62%, transparent 100%),
-    linear-gradient(180deg, #ffffff 0%, #eef6ff 50%, #cfe2f7 100%);
-  border-color: #1F7FCB; border-top-color: #ffffff;
-  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px #1F7FCB, 0 0 18px rgba(79,179,242,0.65), 0 0 34px rgba(79,179,242,0.4), 0 4px 10px rgba(0,0,0,0.6);
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.85) 0%, transparent 62%),
+    linear-gradient(180deg, #FFE27A 0%, #FFC21F 46%, #FF9D0A 100%);
+  border-color: #7A3E00; border-top-color: #FFF6CF; color: #1A0E00;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.55);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 2px #FFB01F, 0 0 20px rgba(255,176,31,0.85), 0 0 44px rgba(255,150,10,0.5), 0 4px 10px rgba(0,0,0,0.6);
+  animation: topic-pop 0.7s cubic-bezier(.2,1.5,.4,1) 1;
+}
+.stage[data-theme="bell"][data-layout="top"] .topic.current { transform: scale(1.09); }
+.stage[data-theme="bell"] .topic.current + .t-arrow { color: #FFB01F; opacity: 1; }
+@keyframes topic-pop {
+  0% { transform: scale(0.9); filter: brightness(2.2); }
+  55% { transform: scale(1.2); filter: brightness(1.35); }
+  100% { filter: brightness(1); }
 }
 .stage[data-theme="bell"] .logo-block {
   background: radial-gradient(ellipse at 75% 50%, rgba(31,127,203,0.28), transparent 60%), linear-gradient(135deg, #040b18 0%, #0e2242 100%);
@@ -854,6 +863,7 @@ body.mode-output .ctl { display: none !important; }
 }
 .stage[data-layout="top"] .t-arrow { display: block; flex: 0 0 auto; color: var(--gold-2); font-size: 14px; line-height: 1; opacity: 0.75; }
 .stage[data-layout="top"] .status-bar { order: 9; flex: 0 0 auto; background: none; border: 0; padding: 0 2px 0 18px; }
+.stage[data-theme="bell"][data-layout="top"] .status-bar { display: none !important; }
 .stage[data-layout="top"] .status-bar::after { display: none; }
 .stage[data-layout="top"] .sidebar .live-mini { font-size: calc(19px * var(--tsize)); letter-spacing: 4px; }
 
@@ -870,6 +880,9 @@ body.mode-output .ctl { display: none !important; }
 .stage[data-layout="top"] .ev-chip-label { font-size: calc(15px * var(--tsize)); max-width: 190px; }
 .stage[data-layout="top"] .ev-chip-time { font-size: calc(24px * var(--tsize)); }
 .stage[data-layout="top"].clock-on:not(.chip-on) .bar-clock { display: flex; }
+.stage[data-theme="bell"][data-layout="top"] .bar-clock { padding: 0 16px; gap: 12px; margin-left: 18px; }
+.stage[data-theme="bell"][data-layout="top"] .bar-clock .ev-chip-label { font-size: calc(19px * var(--tsize)); }
+.stage[data-theme="bell"][data-layout="top"] .bar-clock .ev-chip-time { font-size: calc(33px * var(--tsize)); letter-spacing: 2px; }
 
 /* On the side, the quiet timer stacks: label above, time below, so long labels wrap instead of being cut. */
 .stage:not([data-layout="top"]) .ev-chip { flex-direction: column; align-items: center; gap: 5px; padding: 9px 12px 7px; text-align: center; }
@@ -1292,7 +1305,7 @@ body.mode-output .preview-frame { position: static; border: 0; border-radius: 0;
         <div class="grid2">
           <label class="fld"><span>Logo</span>
             <select id="brLogo" class="inp">
-              <option value="sensei">Sensei News logo</option><option value="bell">Bell icon</option><option value="mono">Initial in a circle</option><option value="custom">My own image</option><option value="none">No logo</option>
+              <option value="sensei">Sensei News logo</option><option value="bell">Bell icon</option><option value="chart">Chart icon</option><option value="mono">Initial in a circle</option><option value="custom">My own image</option><option value="none">No logo</option>
             </select></label>
           <label class="fld" id="brUploadWrap"><span>Upload image</span><input id="brUpload" class="inp" type="file" accept="image/*"></label>
         </div>
@@ -1489,7 +1502,8 @@ var SHOWS = [
   { id: 'sensei-show', name: 'NORMAL SHOW', owner: 'sensei', ownerName: 'SENSEI', blurb: 'Your everyday show. Set it up once, save it as the default, and it is ready every time.' },
   { id: 'sensei-custom', name: 'CUSTOM SHOW', owner: 'sensei', ownerName: 'SENSEI', blurb: 'The one you rebuild for each special: data days, Fed days, earnings, big events.' },
   { id: 'martyn-open', name: 'OPENING BELL', owner: 'martyn', ownerName: 'MARTYN', blurb: 'Counts down to the New York open every day, then flips to MARKETS ARE OPEN.' },
-  { id: 'martyn-close', name: 'CLOSING BELL', owner: 'martyn', ownerName: 'MARTYN', blurb: 'Counts down to the New York close every day, then flips to the closing bell.' }
+  { id: 'martyn-close', name: 'CLOSING BELL', owner: 'martyn', ownerName: 'MARTYN', blurb: 'Counts down to the New York close every day, then flips to the closing bell.' },
+  { id: 'martyn-custom', name: 'ANY SHOW', owner: 'martyn', ownerName: 'MARTYN', blurb: 'For any show that is not a bell. Change the titles and lines each time. No countdown unless you turn one on.' }
 ];
 var BUILTIN = {
   'sensei-show': function () {
@@ -1521,6 +1535,16 @@ var BUILTIN = {
       topics: MARTYN_TOPICS.slice(),
       stories: [st('WELCOME TO THE CLOSING BELL · DROP YOUR QUESTIONS IN THE CHAT'), st('LIKE AND SUBSCRIBE SO YOU NEVER MISS THE CLOSE'), st(LINE_DESK, true), st(LINE_PROMO, true, false), st(LINE_RISK_GEN, true)],
       event: { enabled: true, preset: 'close', label: 'CLOSING BELL IN:', time: '16:00', tz: NY, postTag: 'CLOSED', postText: 'THAT IS THE CLOSING BELL', postMinutes: 15, style: 'small' },
+      side: { width: 30, whenTopic: 'ANALYSIS', whenText: 'FROM THE SENSEI DESK' },
+      display: { layout: 'top', topicSize: 'large', showBoth: false, clocks: ['NYC', 'LDN', 'TYO'], barClock: 'NYC', scrollSpeed: 'slow' }
+    };
+  },
+  'martyn-custom': function () {
+    return {
+      brand: { theme: 'bell', light: 'MARKET', gold: 'UPDATE', tagline: 'RESEARCH BY SENSEI NEWS', logo: 'chart' },
+      topics: ['THE LEAD', 'TOP STORY', 'CHARTS', 'ANALYSIS', 'Q&A', 'DISCORD'],
+      stories: [st('WELCOME TO THE SHOW · DROP YOUR QUESTIONS IN THE CHAT'), st('LIKE AND SUBSCRIBE SO YOU NEVER MISS A LIVE SHOW'), st(LINE_DESK, true), st(LINE_PROMO, true, false), st(LINE_RISK_GEN, true)],
+      event: { enabled: false, preset: 'custom', label: 'STARTS IN:', time: '', tz: NY, postTag: 'LIVE', postText: 'HERE WE GO', postMinutes: 15, style: 'small' },
       side: { width: 30, whenTopic: 'ANALYSIS', whenText: 'FROM THE SENSEI DESK' },
       display: { layout: 'top', topicSize: 'large', showBoth: false, clocks: ['NYC', 'LDN', 'TYO'], barClock: 'NYC', scrollSpeed: 'slow' }
     };
@@ -1769,6 +1793,7 @@ var Stage = (function () {
   var el = $('stage'), holder = $('stageHolder');
   var cur = null, sig = {}, scale = 1, interactive = false, online = false;
   var handlers = { topic: null, resize: null }, fontsReady = 0;
+  var CHART_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.2 17.6l5.3-5.5 3.6 3.2 5.2-6.3" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.6 6.2h5.2v5.2z"/><rect x="3" y="19.6" width="18" height="1.7" rx="0.85" opacity="0.6"/></svg>';
   var BELL_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1.6 1.6 0 0 0-1.6 1.6v.5A6.5 6.5 0 0 0 5.5 10.5v3.9l-1.7 2.9a1 1 0 0 0 .9 1.5h14.6a1 1 0 0 0 .9-1.5l-1.7-2.9v-3.9a6.5 6.5 0 0 0-4.9-6.4v-.5A1.6 1.6 0 0 0 12 2zm-2.6 18a2.7 2.7 0 0 0 5.2 0z"/></svg>';
 
   function setVar(k, v) { el.style.setProperty(k, v); }
@@ -1819,7 +1844,7 @@ var Stage = (function () {
       $('brandTag').style.display = B.tagline ? '' : 'none';
       var img = $('logoImg');
       img.src = logo === 'custom' ? B.logoData : SENSEI_LOGO;
-      $('logoMark').innerHTML = logo === 'bell' ? BELL_SVG : esc((B.light || B.gold || 'S').charAt(0));
+      $('logoMark').innerHTML = logo === 'bell' ? BELL_SVG : logo === 'chart' ? CHART_SVG : esc((B.light || B.gold || 'S').charAt(0));
     }
     /* clocks */
     var cs = D.clocks.join(',');
